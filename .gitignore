@@ -1,0 +1,44 @@
+# Node modules directory
+node_modules/
+
+# Logs
+*.log
+
+# Environment variables (Do not commit .env files)
+.env
+
+# VS Code settings
+.vscode/
+
+# System files (Windows)
+Thumbs.db
+Desktop.ini
+
+# OS generated files (macOS)
+.DS_Store
+
+# Optional npm package lock file
+package-lock.json
+
+# Build output directories
+dist/
+build/
+
+# Temporary files (Windows or other systems)
+*.swp
+*.swo
+
+# Coverage reports (from testing tools)
+coverage/
+
+# .env files used for environment settings
+.env.local
+.env.production
+.env.test
+
+# Git directory (should not be tracked by Git)
+.git/
+
+# Database files (if any)
+*.sqlite
+*.sqlite3
