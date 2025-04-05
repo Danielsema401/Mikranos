@@ -1,5 +1,19 @@
 const express = require('express');
 const morgan = require('morgan');
+const path = require('path');
+const helmet = require('helmet');
+const compression = require('compression');
+const cors = require('cors');
+const routes = require('../routes/v1');
+const logger = require('./logger');
+const { logs, env } = require('./vars');
+const responseHandler = require('../helpers/utils/responseHandler');
+const error = require('../middlewares/error');
+const swaggerUi = require('swagger-ui-express');
+const swaggerDocument = require('../swagger.json');
+
+const express = require('express');
+const morgan = require('morgan');
 const compression = require('compression');
 const methodOverride = require('method-override');
 const cors = require('cors');
@@ -11,19 +25,35 @@ const cookieParser = require('cookie-parser');
 const hpp = require('hpp');
 const { validate, ValidationError } = require('express-validation');
 const routes = require('../api/routes/v1');
-const logger = require('./logger');
-const { logs, env, enableCsrf, sessionSecret } = require('./vars'); // Import variables from vars.js
+const { logs, env } = require('./vars');
 const error = require('../api/middlewares/error');
-const passport = require('passport').stratagy();
 
 const app = express();
+
+
+// Set security-related HTTP headers
+app.use(helmet());
+
+// Enable CORS
+app.use(cors());
+
+// Compress response bodies
+app.use(compression());
 
 // Logging only in development
 if (env === 'development') {
     app.use(morgan(logs));
 }
 
-app.use(passport())
+// Body parsing (limit payload size)
+app.use(express.json({ limit: '10kb' }));
+app.use(express.urlencoded({ extended: true }));
+
+
+// Logging only in development
+if (env === 'development') {
+    app.use(morgan(logs));
+}
 
 // Secure HTTP Headers
 app.use(
@@ -98,36 +128,78 @@ app.use(hpp());
 app.use('/api/v1', routes);
 
 // Custom Test Routes (For Dev/Test Only)
-// if (env === 'test') {
-//     app.get('/api/v1/test-route', (req, res) => res.status(200).json({ message: 'Test route works!' }));
-//     app.post('/api/v1/test-route', (req, res) => res.status(200).json({ message: 'POST request works!', data: req.body }));
-// }
+if (env === 'test') {
+    app.get('/api/v1/test-route', (req, res) => res.status(200).json({ message: 'Test route works!' }));
+    app.post('/api/v1/test-route', (req, res) => res.status(200).json({ message: 'POST request works!', data: req.body }));
+}
+
 
 // Global Error Handling Middleware (Handles 404 and other errors)
-app.use((req, res, next) => {
-    res.status(404).json({ error: 'Not Found' });
-});
-
 app.use((err, req, res, next) => {
-    logger.error(`Error: ${err.message}`, { stack: err.stack });
+    console.error("Error:", err); // Log all errors
 
-    if (err instanceof ValidationError) {
+    // Handle validation errors (specific case)
+    if (err.name === "ValidationError") {
         return res.status(400).json({ error: err.message || "Validation Error" });
     }
 
+    // Handle UnauthorizedError (from JWT or similar authentication)
     if (err.name === "UnauthorizedError") {
         return res.status(401).json({ error: "Unauthorized: Invalid token or missing headers" });
     }
 
+    // Handle CSRF Token errors
     if (err.code === "EBADCSRFTOKEN") {
         return res.status(403).json({ error: "CSRF Token Invalid" });
     }
 
+    // Handle 404 Not Found
+    if (err.status === 404) {
+        return res.status(404).json({ error: 'Not Found' });
+    }
+
+    // For all other errors, return a 500 Internal Server Error
     res.status(err.status || 500).json({ message: err.message || "Internal Server Error" });
+});
+
+// Use error converter and handler for custom error handling
+app.use(error.converter);
+app.use(error.handler);
+
+
+
+// Serve Swagger API documentation
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
+
+// Mount API Routes
+app.use('/api/v1', routes);
+
+// Handle 404 errors (Route not found)
+app.use((req, res, next) => {
+    if (req.accepts('html')) {
+        return res.status(404).render('errors/404', { title: 'Page Not Found' });
+    }
+
+    res.status(404).json({ success: false, error: 'Not Found' });
+});
+
+// Centralized Error Handling Middleware
+app.use((err, req, res, next) => {
+    logger.error(`Error: ${err.message} | Status: ${err.status || 500}`);
+
+    if (req.accepts('html')) {
+        return res.status(err.status || 500).render('errors/500', { title: 'Error', message: err.message });
+    }
+
+    res.status(err.status || 500).json({
+        success: false,
+        message: err.message || 'Internal Server Error',
+    });
 });
 
 // Use custom error handling middleware
 app.use(error.converter);
 app.use(error.handler);
+app.use(error.notFound);
 
 module.exports = app;
