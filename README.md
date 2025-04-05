@@ -1,4 +1,4 @@
-secure and good medium ecommerce code using node ejs etc and my platform like a bridg customers between sellers and this work in local city door to door delivery:
+My Aim is Top security fondation with proof of delivery and good medium backend ecommerce platform code using node etc and my platform like a bridg customers between sellers and this work in local city door to door delivery:
 i contrats or deling with each sellers
 when customers pick products and order and i pick(as platform or admin) carrier or my biker and his pick in my store
 or multi sellers store,
